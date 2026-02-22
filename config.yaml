@@ -1,0 +1,72 @@
+# =============================================================================
+# config.yaml — Credit Scoring Pipeline Configuration
+# All hyperparameters and constants live here — no need to edit source files.
+# =============================================================================
+
+# ── Data ─────────────────────────────────────────────────────────────────────
+data:
+  train_path:      "data/cs-training.csv"
+  dictionary_path: "data/Data Dictionary.xls"
+  target:          "SeriousDlqin2yrs"
+  test_size:       0.30
+  random_state:    42
+
+# ── Preprocessing ─────────────────────────────────────────────────────────────
+preprocessing:
+  age_min_valid:               0
+  revolving_clip_quantile:     0.99
+  debt_ratio_clip_quantile:    0.80
+  late_payment_cols:
+    - "NumberOfTime30-59DaysPastDueNotWorse"
+    - "NumberOfTime60-89DaysPastDueNotWorse"
+    - "NumberOfTimes90DaysLate"
+  late_payment_tech_threshold: 20
+
+# ── Cross-validation ──────────────────────────────────────────────────────────
+cv:
+  n_folds:      3
+  random_state: 42
+
+# ── Binning ───────────────────────────────────────────────────────────────────
+binning:
+  psi_threshold:  0.05
+  max_n_prebins:  20
+  categorical_override:
+    - "your_features"
+  trend_map:
+    RevolvingUtilizationOfUnsecuredLines: ascending
+    age:                                  descending
+    NumberOfTime30-59DaysPastDueNotWorse: ascending
+    DebtRatio:                            ascending
+    MonthlyIncome:                        descending
+    NumberOfOpenCreditLinesAndLoans:      ascending
+    NumberOfTimes90DaysLate:              ascending
+    NumberRealEstateLoansOrLines:         ascending
+    NumberOfTime60-89DaysPastDueNotWorse: ascending
+    NumberOfDependents:                   ascending
+    TotalDebtLoad:                        ascending
+    IncomePerDependent:                   descending
+    LatePerCredit:                        ascending
+    TotalLate:                            ascending
+    LateIncomeRatio:                      ascending
+
+# ── Feature selection ─────────────────────────────────────────────────────────
+feature_selection:
+  max_features:              16
+  pvalue_threshold:          0.05
+  correlation_threshold:     0.50
+  name_similarity_threshold: 0.65
+  max_iter:                  10930
+
+# ── Model ─────────────────────────────────────────────────────────────────────
+model:
+  C_grid:         [0.01, 0.05, 0.1, 0.5, 1.0, 5.0, 10.0]
+  solver:         lbfgs
+  max_iter:       1500
+  inner_cv_folds: 3
+  scoring:        roc_auc
+
+# ── Validation ────────────────────────────────────────────────────────────────
+validation:
+  n_score_bins: 10
+  n_deciles:    10

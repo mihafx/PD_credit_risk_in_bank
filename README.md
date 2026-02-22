@@ -1,23 +1,10 @@
-# PD model of credit scoring 
+# Credit Scoring — Ranking Model
 
-Logistic regression pipeline for Probability of Default (PD) estimation designed for IFRS 9 / internal credit risk reserving contexts. The model is based on binning rules and WoE transformations. The quality of the model is confirmed for validation.
 Logistic regression pipeline for credit scoring on the [Give Me Some Credit](https://www.kaggle.com/c/GiveMeSomeCredit) dataset. Built as a research notebook with a clean, importable module structure for GitHub publication.
 
-**Target:** `SeriousDlqin2yrs` — 90+ days past due within 2 years . Binary taret (0 or 1)
-
-## Key Results
-
-| Metric | fold 1 | fold 2 | fold 3 |
-|--------|--------|--------|--------|
-| Gini (train) | 0.6990 | 0.7089 | 0.7060 |
-| Gini (valid) | 0.7083 | 0.6933 | 0.6992 |
-| Gini (test) | 0.7024 | 0.7027 | 0.7037 |
-
-| Metric | Value |
-|--------|-------|
-| Ensemble Gini (Test) | 0.7042 |
-| OOF Gini (mean of 3 folds) | 0.7001 |
-
+**Target:** `SeriousDlqin2yrs` — 90+ days past due within 2 years  
+**Task:** Ranking (score-based, not PD calibration)  
+**Train / Test:** 70% / 30%, stratified
 
 ---
 
@@ -59,14 +46,21 @@ Validation  (PSI · KS · Decile table · VIF · Coef stability)
 ## Repository Structure
 
 ```
-├── README.md             
-├── config.yaml            # all hyperparameters & constants
-├── run.py                 # entry point — runs full pipeline
+credit-scoring/
+├── config.yaml                 # all hyperparameters & constants
+├── run.py                      # entry point — runs full pipeline
 ├── requirements.txt
-└── src/
-    ├── preprocessing.py   # load → clean → engineer → split
-    ├── binning.py         # WoE binning, monotonicity, WoE transform
-    └── validation.py      # PSI, KS, decile, VIF, coef stability 
+├── README.md
+│
+├── src/
+│   ├── __init__.py
+│   ├── preprocessing.py        # load, clean, engineer features, split
+│   ├── binning.py              # WoE binning, monotonicity, WoE transform
+│   └── validation.py          # PSI, KS, decile table, VIF, coef stability
+│
+├── notebooks/
+│   └── credit_scoring.ipynb   # full research notebook (EDA → validation)
+│
 └── data/
     ├── cs-training.csv         # raw dataset (download from Kaggle)
     └── Data Dictionary.xls
@@ -76,13 +70,9 @@ Validation  (PSI · KS · Decile table · VIF · Coef stability)
 
 ## Quick Start
 
-1) 
-Use pd_model_credit_risk_v3.ipynb for understanding main logic
-
-2)
 ```bash
 # 1. Clone and install dependencies
-git clone https://github.com/mihafx/credit-scoring.git
+git clone https://github.com/your-username/credit-scoring.git
 cd credit-scoring
 pip install -r requirements.txt
 
@@ -120,6 +110,32 @@ model:
 ```
 
 ---
+
+## Data Preprocessing
+
+### Cleaning
+
+| Feature | Problem | Fix |
+|---------|---------|-----|
+| `age` | Values ≤ 0 impossible | → `NaN` |
+| `RevolvingUtilizationOfUnsecuredLines` | Heavy right tail | Clip at 99th percentile |
+| `DebtRatio` | Extreme outliers | Clip at 80th percentile |
+| `NumberOfTime30-59DaysPastDueNotWorse` | Codes 96 / 98 (technical) | Values ≥ 20 → `NaN` |
+| `NumberOfTime60-89DaysPastDueNotWorse` | Same | Values ≥ 20 → `NaN` |
+| `NumberOfTimes90DaysLate` | Same | Values ≥ 20 → `NaN` |
+
+### Derived Features
+
+| Feature | Formula | Economic meaning |
+|---------|---------|-----------------|
+| `TotalDebtLoad` | `DebtRatio × RevolvingUtilization` | Combined debt burden |
+| `IncomePerDependent` | `MonthlyIncome / (1 + Dependents)` | Effective disposable income |
+| `LatePerCredit` | `TotalLate / max(OpenLines, 1)` | Delinquency frequency per credit |
+| `TotalLate` | Sum of all three late columns | Overall delinquency count |
+| `LateIncomeRatio` | `TotalLate / IncomePerDependent` | Delinquency pressure on income |
+
+---
+
 ## Feature Engineering — WoE Binning
 
 All features are transformed to **Weight of Evidence (WoE)** using [`optbinning`](https://github.com/guillermo-navas-palencia/optbinning). Monotonicity is enforced by iteratively reducing bin count until **Wilson CI** intervals of adjacent bins stop overlapping.
@@ -128,6 +144,27 @@ Features are excluded per fold if:
 - PSI of default rate distribution ≥ `psi_threshold` (between train and val splits)
 - Optimal binning collapses everything into a single `(-inf, inf)` bin
 
+Monotonic trend per feature:
+
+| Feature | Trend |
+|---------|-------|
+| `RevolvingUtilizationOfUnsecuredLines` | ascending |
+| `age` | descending |
+| `NumberOfTime30-59DaysPastDueNotWorse` | ascending |
+| `DebtRatio` | ascending |
+| `MonthlyIncome` | descending |
+| `NumberOfOpenCreditLinesAndLoans` | ascending |
+| `NumberOfTimes90DaysLate` | ascending |
+| `NumberRealEstateLoansOrLines` | ascending |
+| `NumberOfTime60-89DaysPastDueNotWorse` | ascending |
+| `NumberOfDependents` | ascending |
+| `TotalDebtLoad` | ascending |
+| `IncomePerDependent` | descending |
+| `LatePerCredit` | ascending |
+| `TotalLate` | ascending |
+| `LateIncomeRatio` | ascending |
+
+---
 
 ## Feature Selection
 
@@ -190,7 +227,17 @@ Unweighted mean across folds. A stacking meta-model was tested but rejected: OOF
 pip install -r requirements.txt
 ```
 
+Key packages: `numpy`, `pandas`, `statsmodels`, `scikit-learn`, `optbinning`, `ydata-profiling`, `pyyaml`
+
 ---
 
+## Key Results
 
-
+| Metric | Value |
+|--------|-------|
+| Ensemble Gini (Test) | ~0.55 |
+| KS (Test) | ~0.55 |
+| Top decile DR | ~35% |
+| Top decile lift | ~5.3× |
+| VIF (all features) | < 1.3 |
+| PSI per fold | < 0.001 |
