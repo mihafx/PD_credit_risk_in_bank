@@ -59,17 +59,18 @@ Validation  (PSI · KS · Decile table · VIF · Coef stability)
 ## Repository Structure
 
 ```
-├── README.md             
-├── config.yaml            # all hyperparameters & constants
-├── run.py                 # entry point — runs full pipeline
+├── README.md
+├── pd_model_credit_risk_v3.ipynb      # the main file for understanding the logic     
+├── config.yaml                        # all hyperparameters & constants
+├── run.py                             # entry point — runs full pipeline
 ├── requirements.txt
 └── src/
-    ├── preprocessing.py   # load → clean → engineer → split
-    ├── binning.py         # WoE binning, monotonicity, WoE transform
-    └── validation.py      # PSI, KS, decile, VIF, coef stability 
+    ├── preprocessing.py               # load → clean → engineer → split
+    ├── binning.py                     # WoE binning, monotonicity, WoE transform
+    └── validation.py                  # PSI, KS, decile, VIF, coef stability 
 └── data/
-    ├── cs-training.csv         # raw dataset (download from Kaggle)
-    └── Data Dictionary.xls
+    ├── cs-training.csv                # raw dataset (download from Kaggle)
+    └── Data Dictionary.xls            # input data dictionary (download from Kaggle)
 ```
 
 ---
